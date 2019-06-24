@@ -1,0 +1,251 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>bars</title>
+  <style>
+    
+    .axis {
+      font: 10px sans-serif;
+      
+    }
+    
+    .axis path,
+    .axis line {
+      fill: none;
+      
+      shape-rendering: crispEdges;
+    }
+    
+    .axis--y path {
+      display: none;
+      
+          }
+    
+    .bar {
+      
+      fill-opacity: .9;
+    }
+    
+    .wld {
+      fill: #9ecae1;
+    }
+    
+    .chart-title {
+      margin-bottom: 0;
+    }
+    
+    .source {
+      margin-right: 20%;
+      margin-left: 15%;
+      font-size: 15px;
+    }
+
+    div.item {
+    margin-right: 20%;
+    vertical-align: top;
+    float: right;
+    display: inline-block;
+    text-align: center;
+    width: 120px;
+}
+img {
+    width: 60px;
+    height: 60px;
+    
+}
+.caption {
+    display: block;
+}
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <center><p><h4 class="chart-title">Week  <span class="week"></span> </h4></p>
+      <p><h4><span class="ole"></span></h4></p>
+    </center>
+    <div class="chart"></div>
+    
+    <p class="source">
+      <span >Title Battle Premier League 2018/2019</span>
+      <div class="item" >
+          <img src="favicon.ico"/>
+          <span class="caption">@heptanalytics</span>
+      </div>
+    </p>
+    
+  </div>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="https://d3js.org/d3-scale.v3.min.js"></script>
+  
+  <script>
+    'use strict';
+    
+    const margin = {top: 20, right: 30, bottom: 40, left: 260};
+    const width = 960 - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
+    const percentFormat = d3.format('.0%');
+    const leftPadding = 5;
+    
+    const delay = function(d, i) {
+      return i * 40;
+    };
+    
+    function sortData(data) {
+      data.sort(function(a,b) {
+        return b.points - a.points;
+      });
+    }
+    
+    function removeGeoAreasWithNoData(data) {
+      return data.filter(d => d.value);
+    }
+    
+    
+    
+    function xAccessor(d) {
+      return d.points;
+    }
+    
+    function yAccessor(d) {
+      return d.teamname;
+    }
+    
+    const xScale = d3.scaleLinear()
+    .range([0, width])
+    .domain([0, 100]);
+    
+    const yScale = d3.scaleBand()
+    .rangeRound([0, height], 0.1)
+    .padding(0.1);
+    
+    function drawXAxis(el) {
+      el.append('g')
+      .attr('class', 'axis axis--x')
+      .attr('transform', `translate(${leftPadding},${height})`)
+      .call(d3.axisBottom(xScale));
+    }
+    
+    function drawYAxis(el, data, t) {
+      let axis = el.select('.axis--y');
+      if (axis.empty()) {
+        axis = el.append('g')
+        .attr('class', 'axis axis--y');
+      }
+      
+      axis.transition(t)
+      .call(d3.axisLeft(yScale))
+      .selectAll('g')
+      .delay(delay);
+    }
+    
+    function drawBars(el, data, t) {
+      let barsG = el.select('.bars-g');
+      if (barsG.empty()) {
+        barsG = el.append('g')
+        .attr('class', 'bars-g');
+      }
+      
+      const bars = barsG
+      .selectAll('.bar')
+      .data(data, yAccessor);
+      bars.exit()
+      .remove();
+      bars.enter()
+      .append('rect')
+      .attr('class', d => d.games === '18' ? 'bar wld' : 'bar')
+      
+      .attr('x', leftPadding)
+      .merge(bars).transition(t)
+      .attr('y', d => yScale(yAccessor(d)))
+      .attr("fill", function(d) {
+        if (d.teamname=='Liverpool' ){
+          //console.log('i am making',d.games)
+          return 'Red';
+        }else if (d.teamname=='Man City'){
+          return '#3182bd';
+        }
+        
+        else  {
+          return "#000";
+        } 
+        
+      })
+      .attr('width', d => xScale(xAccessor(d)))
+      .attr('height', yScale.bandwidth())
+      
+      .delay(delay);
+    
+    }
+    
+    const svg = d3.select('.chart').append('svg')
+    .attr('width', width + margin.left + margin.right)
+    .attr('height', height + margin.top + margin.bottom)
+    .append('g')
+    .attr('transform', `translate(${margin.left},${margin.top})`);
+    
+    
+    
+    d3.csv("datafull.csv", function(d) {
+      return {
+        games : d.games,
+        position : d.position,
+        teamname : d.teamname,
+        points : d.points
+      };
+    },function(data) {
+      console.log(data[0]);
+      
+      
+      //.then((res) => {
+        //const data = prepareData(d3.csvParse(res));
+        
+        const lastYear = 38;
+        let startYear = 1;
+        var filtereddata = data.filter(function(d) { return d.games == startYear.toString(); });
+        console.log(filtereddata[0]);
+        var selectedData = filtereddata.sort(function(a,b) {  return b.points - a.points;});
+        console.log(selectedData[0]);
+        let geoAreas = selectedData.map(yAccessor);
+        
+        
+        d3.select('.week').text(startYear.toString());
+        
+        
+        yScale.domain(geoAreas);
+        drawXAxis(svg, selectedData.points);
+        drawYAxis(svg, selectedData.teamname);
+        drawBars(svg, selectedData);
+        
+        const interval = d3.interval(() => {
+          const t = d3.transition().duration(400);
+          
+          startYear += 1;
+          filtereddata = data.filter(function(d) { return d.games == startYear.toString(); });
+          selectedData = filtereddata.sort(function(a,b) {  return b.points - a.points;});
+          
+          d3.select('.week').text(startYear.toString());
+
+          if (startYear == 20 ){
+          d3.select('.ole').text('Turning Point');
+         }
+         else if (startYear > 24 ){
+          d3.select('.ole').text('Man City 14 match winning streak');
+         }
+         else{
+          d3.select('.ole').text('');
+         }
+          
+          yScale.domain(selectedData.map(yAccessor));
+          drawYAxis(svg, selectedData, t);
+          drawBars(svg, selectedData, t);
+          
+          if (startYear === lastYear) {
+            interval.stop();
+          }
+        }, 1000);
+      });
+    </script>
+  </body>
+  </html>
